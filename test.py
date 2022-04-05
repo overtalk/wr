@@ -47,7 +47,6 @@ PRICE_SEGMENT = [
 # NOTE: 分类的key
 CATEGORY_KEYS = [REQUIRED_KEY_CATEGORY, REQUIRED_KEY_PRODECT_TYPE]
 
-# NOTE:
 
 def getPriceSeg(price):
 	# 获取单价属于哪个加个区间
@@ -136,6 +135,10 @@ if __name__ == '__main__':
 				default='./wr1.xlsx', help='excel path')
 	parser.add_argument("--sheet", type=str, required=False,
 				default='Sheet1', help='sheet name')
+	parser.add_argument("--target_region", type=unicode, required=False,
+				default=u'杭州', help='target city')
+	parser.add_argument("--target_category", type=unicode, required=False,
+				default=u'海尔', help='target category')
 	args = parser.parse_args()
 
 	print("[ARGS] excel(%s) - sheet(%s)" % (args.excel, args.sheet))
@@ -146,11 +149,45 @@ if __name__ == '__main__':
 	# NOTE: 按照分类的key进行分类
 	classified_data = categoryExcelData(raw_datas) # 分类之后的数据
 
+	## NOTE: 数据打印出来看看
+	#for region, region_data in classified_data.iteritems():
+	#	# 值处理杭州的
+	#	if region != u'杭州':
+	#		continue
+	#	for price_seg, price_seg_data in region_data.iteritems():
+	#		for cat_key, cat_data in price_seg_data.iteritems():
+	#				for cat_name, details in cat_data.iteritems():
+	#					print("[%s][%s][%s] %s - (%s)"%(region, price_seg, cat_key, cat_name, details))
+
+	# NOTE: 计算每个分段的占比以及海尔的份额
+	sales_data = {}
 	for region, region_data in classified_data.iteritems():
-		# 值处理杭州的
-		if region != u'杭州':
+		# NOTE: 只处理特定地区的
+		if region != args.target_region:
 			continue
+
 		for price_seg, price_seg_data in region_data.iteritems():
-			for cat_key, cat_data in price_seg_data.iteritems():
-					for cat_name, details in cat_data.iteritems():
-						print("[%s][%s][%s] %s - (%s)"%(region, price_seg, cat_key, cat_name, details))
+			tmp_total_sales = 0
+			tmp_target_sales = 0
+			for cat, details in price_seg_data[REQUIRED_KEY_CATEGORY].iteritems():
+				for item in details:
+					table_id, sales = item
+					catgory = raw_datas[table_id][REQUIRED_KEY_CATEGORY]
+
+					tmp_total_sales += sales
+					if catgory == args.target_category:
+						tmp_target_sales += sales
+			sales_data[price_seg] = {
+				'total': tmp_total_sales,
+				'target': tmp_target_sales,
+				'target_market_shares': float(float(tmp_target_sales)/float(tmp_total_sales))
+			}
+
+	# NOTE: 计算总的市场销售额
+	total_sales = 0
+	for price_seg, item in sales_data.iteritems():
+		total_sales += item['total']
+
+	for price_seg, item in sales_data.iteritems():
+		print("[%s] total_market_shares(%s) target_market_shares(%s)"%
+			(price_seg, float(item['total'])/float(total_sales), item['target_market_shares']))
