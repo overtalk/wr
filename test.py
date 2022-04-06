@@ -129,39 +129,11 @@ def categoryExcelData(raw_datas):
 				)
 	return classified_data
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--excel", type=str, required=False,
-				default='./wr1.xlsx', help='excel path')
-	parser.add_argument("--sheet", type=str, required=False,
-				default='Sheet1', help='sheet name')
-	parser.add_argument("--target_region", type=unicode, required=False,
-				default=u'杭州', help='target city')
-	parser.add_argument("--target_category", type=unicode, required=False,
-				default=u'海尔', help='target category')
-	args = parser.parse_args()
-
-	print("[ARGS] excel(%s) - sheet(%s)" % (args.excel, args.sheet))
-
-	# NOTE: 读取excel中的数据
-	raw_datas = getExcelData(args)
-
-	# NOTE: 按照分类的key进行分类
-	classified_data = categoryExcelData(raw_datas) # 分类之后的数据
-
-	## NOTE: 数据打印出来看看
-	#for region, region_data in classified_data.iteritems():
-	#	# 值处理杭州的
-	#	if region != u'杭州':
-	#		continue
-	#	for price_seg, price_seg_data in region_data.iteritems():
-	#		for cat_key, cat_data in price_seg_data.iteritems():
-	#				for cat_name, details in cat_data.iteritems():
-	#					print("[%s][%s][%s] %s - (%s)"%(region, price_seg, cat_key, cat_name, details))
-
-	# NOTE: 计算每个分段的占比以及海尔的份额
+def getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas):
+	# NOTE: 计算每个分段的占比以及
+	# 目标品牌在某个价格段所占的份额
 	sales_data = {}
-	for region, region_data in classified_data.iteritems():
+	for region, region_data in sorted_classified_data.iteritems():
 		# NOTE: 只处理特定地区的
 		if region != args.target_region:
 			continue
@@ -188,6 +160,91 @@ if __name__ == '__main__':
 	for price_seg, item in sales_data.iteritems():
 		total_sales += item['total']
 
+	ret_dict = {}
 	for price_seg, item in sales_data.iteritems():
-		print("[%s] total_market_shares(%s) target_market_shares(%s)"%
-			(price_seg, float(item['total'])/float(total_sales), item['target_market_shares']))
+		ret_dict[price_seg] = {
+			'total_market_shares': float(item['total'])/float(total_sales),
+			'target_market_shares': item['target_market_shares'],
+		}
+	return ret_dict
+
+def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
+	get_target_cat=True):
+	# 整体占比
+	sales_data = []
+	for region, region_data in sorted_classified_data.iteritems():
+		# NOTE: 只处理特定地区的
+		if region != args.target_region:
+			continue
+		for price_seg, price_seg_data in region_data.iteritems():
+			for cat, details in price_seg_data[REQUIRED_KEY_CATEGORY].iteritems():
+				for item in details:
+					table_id, sales = item
+					catgory = raw_datas[table_id][REQUIRED_KEY_CATEGORY]
+					sales_data.append([table_id, price_seg, catgory, sales])
+
+	total_sales = 0 # 销售总额度
+	for item in sales_data:
+		total_sales += item[-1]
+
+	for index in xrange(len(sales_data)):
+		sales_data[index].append(float(sales_data[index][-1])/float(total_sales))
+
+	sorted_sales_data = sorted(sales_data, key=lambda s: s[-1])
+
+	ret_dict = {}
+	for index in xrange(len(sorted_sales_data)):
+		item = sorted_sales_data[index]
+		table_id, price_seg, catgory, sales, percent = item
+		raw_data = raw_datas[table_id]
+		if get_target_cat and raw_data[REQUIRED_KEY_CATEGORY] != args.target_category:
+			continue
+		ret_dict.setdefault(price_seg, []).append([table_id, raw_data[POST_KEY_NAME], sales, percent, index+1])
+
+	return ret_dict
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--excel", type=str, required=False,
+				default='./wr1.xlsx', help='excel path')
+	parser.add_argument("--sheet", type=str, required=False,
+				default='Sheet1', help='sheet name')
+	parser.add_argument("--target_region", type=unicode, required=False,
+				default=u'杭州', help='target city')
+	parser.add_argument("--target_category", type=unicode, required=False,
+				default=u'海尔', help='target category')
+	args = parser.parse_args()
+
+	print("[ARGS] excel(%s) - sheet(%s)" % (args.excel, args.sheet))
+
+	# NOTE: 读取excel中的数据
+	raw_datas = getExcelData(args)
+
+	# NOTE: 按照分类的key进行分类
+	classified_data = categoryExcelData(raw_datas) # 分类之后的数据
+
+	# NOTE: 排序
+	sorted_classified_data = {} # 排序之后的数据
+	for region, region_data in classified_data.iteritems():
+		for price_seg, price_seg_data in region_data.iteritems():
+			for cat_key in CATEGORY_KEYS:
+				for cat, details in price_seg_data[cat_key].iteritems():
+					sorted_data = sorted(details, key=lambda s: s[1], reverse=True)
+					sorted_classified_data.setdefault(region, {}) \
+						.setdefault(price_seg, {}) \
+						.setdefault(cat_key, {})[cat] = sorted_data
+
+	# NOTE: 每个加个段占市场的总份额 & 目标品牌在每个段的占比
+	market_shares_for_all_price_seg = getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas)
+	for price_seg, item in market_shares_for_all_price_seg.iteritems():
+		print("[111] %s - %s "%(price_seg, item))
+
+	# NOTE: 整体对比
+	market_shares_for_total = getMarketSharesForTotal(args, sorted_classified_data, raw_datas, get_target_cat=False)
+	for price_seg, item in market_shares_for_total.iteritems():
+		print("[222] %s - %s "%(price_seg, item))
+
+	# NOTE: 目标品牌
+	market_shares_for_target = getMarketSharesForTotal(args, sorted_classified_data, raw_datas, get_target_cat=True)
+	for price_seg, item in market_shares_for_target.iteritems():
+		print("[333] %s - %s "%(price_seg, item))
