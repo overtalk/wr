@@ -250,7 +250,7 @@ def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
 		sales_data[index].append(float(sales_data[index][-1])/float(total_sales))
 
 	# NOTE: 按照份额排序
-	sorted_sales_data = sorted(sales_data, key=lambda s: s[-1])
+	sorted_sales_data = sorted(sales_data, key=lambda s: s[-1], reverse=True)
 
 	# NOTE: 取出required_target_key取出需要的数据
 	ret_dict = {}
@@ -318,8 +318,10 @@ class PostData(object):
 			all_data_by_cat.extend(product_rank_list)
 			if category == self.args.target_category:
 				target_catetogy_data_by_cat.extend(product_rank_list)
-		sorted_all_data_by_cat = sorted(all_data_by_cat, key=lambda s: s[-1])
-		sorted_target_catetogy_data_by_cat = sorted(target_catetogy_data_by_cat, key=lambda s: s[-1])
+
+		# NOTE: 这儿排序的key是排名，所以不用降序
+		sorted_all_data_by_cat = sorted(all_data_by_cat, key=lambda rank_index: rank_index[-1])
+		sorted_target_catetogy_data_by_cat = sorted(target_catetogy_data_by_cat, key=lambda rank_index: rank_index[-1])
 
 		# NOTE: 根据产品类型来排序
 		product_type_data = {}
@@ -446,7 +448,7 @@ class PostData(object):
 
 		# NOTE: 所有的单元格设置成居中
 		for table_row in xrange(1, max_row+1):
-			for table_column in xrange(1, max_column):
+			for table_column in xrange(1, max_column+1):
 				cell = new_sheet.cell(row=table_row, column=table_column)
 				cell.font = font
 				cell.alignment = alignment
@@ -470,6 +472,7 @@ class PostData(object):
 
 			for column in xrange(start, end+1):
 				new_sheet.cell(row=2, column=column).fill = color
+		column_step.append(max_column+1)
 
 		# NOTE: 自适应列宽
 		# 第一步：计算每列最大宽度，并存储在列表lks中。
