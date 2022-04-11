@@ -13,6 +13,7 @@ REQUIRED_KEY_WEEK = u'周'
 REQUIRED_KEY_CATEGORY = u'品牌'
 REQUIRED_KEY_MODEL = u'型号'
 REQUIRED_KEY_PRODECT_TYPE = u'产品类型'
+REQUIRED_KEY_IS_MUTI_DOOR = u'多门十字'
 
 REQUIRED_KEY_SELL_COUNT = u'零售量'
 REQUIRED_KEY_SINGLE_PRICE = u'单价'
@@ -20,11 +21,17 @@ REQUIRED_KEY_SINGLE_PRICE = u'单价'
 REQUIRED_KEY_REGION = u'城市'
 
 REQUIRED_KEYS = [
+	REQUIRED_KEY_YEAR,
+	REQUIRED_KEY_WEEK,
+
 	REQUIRED_KEY_CATEGORY,
 	REQUIRED_KEY_MODEL,
 	REQUIRED_KEY_PRODECT_TYPE,
+	REQUIRED_KEY_IS_MUTI_DOOR,
+
 	REQUIRED_KEY_SELL_COUNT,
 	REQUIRED_KEY_SINGLE_PRICE,
+
 	REQUIRED_KEY_REGION,
 ]
 
@@ -33,6 +40,7 @@ POST_KEY_SALES = 'post_key_sales'
 POST_KEY_NAME = 'post_key_name'
 POST_KEY_TIME_DUR = 'post_key_time_dur' # 时间段，年份+月份
 POST_KEY_MERGE_RABLE_IDS = 'post_key_merge_table_ids' # 融合了哪些行
+POST_KEY_NEW_TYPE = 'post_key_new_type' # 处理之后的类型
 
 # NOTE: 价位分段
 PRICE_SEGMENT = [
@@ -53,8 +61,9 @@ PRICE_SEGMENT = [
 ]
 
 # NOTE: 分类的key
-CATEGORY_KEYS = [REQUIRED_KEY_CATEGORY, REQUIRED_KEY_PRODECT_TYPE]
+CATEGORY_KEYS = [REQUIRED_KEY_CATEGORY, POST_KEY_NEW_TYPE]
 
+# region ------------- 价格段 -------------
 def getPriceSegName(index):
 	if index == 0:
 		key = '%s+'%(PRICE_SEGMENT[0])
@@ -76,6 +85,51 @@ def getPriceSeg(price):
 		return len(PRICE_SEGMENT)
 
 	return index
+
+# endregion ------------- 价格段 -------------
+
+# region ------------- 产品类型 -------------
+def getProductType(pt, door_num):
+
+	type_dict = {
+		u"T型": [{'door_num':1, 'pt':[u"多门", u'4门']}],
+		u'三门': [{'door_num':0, 'pt':[u"三门"]}],
+		u'对开': [{'door_num':0, 'pt':[u"对开门"]}],
+
+		u'双门': [
+			{'door_num':0, 'pt':[u"双门"]},
+			{'door_num':0, 'pt':[u"单门"]}
+		],
+
+		u'多门': [
+			{'door_num':0, 'pt':[u"多门", u'4门']},
+			{'door_num':0, 'pt':[u"多门", u'5门']},
+			{'door_num':0, 'pt':[u"多门", u'6门']},
+			{'door_num':0, 'pt':[u"多门", u'其它']},
+		],
+	}
+
+	for type_name, limits in type_dict.iteritems():
+		for limit in limits:
+			limit_door_num = limit['door_num']
+			if door_num != limit_door_num:
+				continue
+
+			flag = True
+			limit_pt_list= limit['pt']
+			for pt_item in limit_pt_list:
+				if pt_item not in pt:
+					flag = False
+					break
+			if flag:
+				return type_name
+
+
+	print("%s - %s "%(door_num, pt))
+	raise RuntimeError('Unknown Product Type ')
+
+
+# endregion ------------- 产品类型 -------------
 
 def getExcelData(args):
 	# NOTE: 读取excel表格数据
@@ -116,6 +170,7 @@ def getExcelData(args):
 		tmp_raw_data[POST_KEY_SALES] = tmp_raw_data[REQUIRED_KEY_SELL_COUNT]*tmp_raw_data[REQUIRED_KEY_SINGLE_PRICE]
 		tmp_raw_data[POST_KEY_NAME] = "%s %s"%(tmp_raw_data[REQUIRED_KEY_CATEGORY], tmp_raw_data[REQUIRED_KEY_MODEL])
 		tmp_raw_data[POST_KEY_TIME_DUR] = "%s_%s"%(tmp_raw_data[REQUIRED_KEY_YEAR], tmp_raw_data[REQUIRED_KEY_WEEK])
+		tmp_raw_data[POST_KEY_NEW_TYPE] = getProductType(tmp_raw_data[REQUIRED_KEY_PRODECT_TYPE], int(tmp_raw_data[REQUIRED_KEY_IS_MUTI_DOOR]))
 
 		raw_datas[index] = tmp_raw_data
 
@@ -610,7 +665,7 @@ if __name__ == '__main__':
 
 	# NOTE: 目标品牌
 	market_shares_for_target_by_product_type = getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
-		required_target_key=REQUIRED_KEY_PRODECT_TYPE)
+		required_target_key=POST_KEY_NEW_TYPE)
 
 	# NOTE: 将结果写入excel中
 	post_data_util = PostData(
