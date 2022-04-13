@@ -5,84 +5,28 @@ import openpyxl
 import copy
 from openpyxl.styles import PatternFill, Alignment, Font, Side, Border, colors
 from openpyxl.utils import get_column_letter
-
-# NOTE: 表格中必须要有的key
-REQUIRED_KEY_YEAR = u'年'
-REQUIRED_KEY_WEEK = u'周'
-
-REQUIRED_KEY_CATEGORY = u'品牌'
-REQUIRED_KEY_MODEL = u'型号'
-REQUIRED_KEY_PRODECT_TYPE = u'产品类型'
-REQUIRED_KEY_IS_MUTI_DOOR = u'多门十字'
-
-REQUIRED_KEY_SELL_COUNT = u'零售量'
-REQUIRED_KEY_SINGLE_PRICE = u'单价'
-
-REQUIRED_KEY_REGION = u'城市'
-
-REQUIRED_KEYS = [
-	REQUIRED_KEY_YEAR,
-	REQUIRED_KEY_WEEK,
-
-	REQUIRED_KEY_CATEGORY,
-	REQUIRED_KEY_MODEL,
-	REQUIRED_KEY_PRODECT_TYPE,
-	REQUIRED_KEY_IS_MUTI_DOOR,
-
-	REQUIRED_KEY_SELL_COUNT,
-	REQUIRED_KEY_SINGLE_PRICE,
-
-	REQUIRED_KEY_REGION,
-]
-
-# NOTE: 后处理的一些key
-POST_KEY_SALES = 'post_key_sales'
-POST_KEY_NAME = 'post_key_name'
-POST_KEY_TIME_DUR = 'post_key_time_dur' # 时间段，年份+月份
-POST_KEY_MERGE_RABLE_IDS = 'post_key_merge_table_ids' # 融合了哪些行
-POST_KEY_NEW_TYPE = 'post_key_new_type' # 处理之后的类型
-
-# NOTE: 价位分段
-PRICE_SEGMENT = [
-	30000,
-	20000,
-	15000,
-	10000,
-	8000,
-	6000,
-	5500,
-	5000,
-	4500,
-	4000,
-	3500,
-	3000,
-	2500,
-	2000,
-]
-
-# NOTE: 分类的key
-CATEGORY_KEYS = [REQUIRED_KEY_CATEGORY, POST_KEY_NEW_TYPE]
+from utils import consts
 
 # region ------------- 价格段 -------------
 def getPriceSegName(index):
 	if index == 0:
-		key = '%s+'%(PRICE_SEGMENT[0])
-	elif index == len(PRICE_SEGMENT):
-		key = '%s-'%(PRICE_SEGMENT[-1])
+		key = '%s+'%(consts.PRICE_SEGMENT[0])
+	elif index == len(consts.PRICE_SEGMENT):
+		key = '%s-'%(consts.PRICE_SEGMENT[-1])
 	else:
-		key = '%s-%s'%(PRICE_SEGMENT[index], PRICE_SEGMENT[index-1])
+		key = '%s-%s'%(consts.PRICE_SEGMENT[index], consts.PRICE_SEGMENT[index-1])
 	return key
 
 def getPriceSeg(price):
 	# 获取单价属于哪个加个区间
 	index = None
-	for price_seg_index in xrange(len(PRICE_SEGMENT)):
-		if price > PRICE_SEGMENT[price_seg_index]:
+	for price_seg_index in xrange(len(consts.PRICE_SEGMENT)):
+		if price > consts.PRICE_SEGMENT[price_seg_index]:
 			index = price_seg_index
 			break
 
 	if index is None:
-		return len(PRICE_SEGMENT)
+		return len(consts.PRICE_SEGMENT)
 
 	return index
 
@@ -127,15 +71,16 @@ def getProductType(pt, door_num):
 
 	print("%s - %s "%(door_num, pt))
 	raise RuntimeError('Unknown Product Type ')
-
-
 # endregion ------------- 产品类型 -------------
 
 def getExcelData(args):
 	# NOTE: 读取excel表格数据
 	# 会对重复的数据做融合
-	workbook = openpyxl.load_workbook(filename=args.excel)
-	sheet = workbook[args.sheet]
+	chinese_path = args.excel.decode('utf8').encode('gbk')
+	chinese_sheet = args.sheet.decode('utf8').encode('gbk')
+
+	workbook = openpyxl.load_workbook(filename=chinese_path)
+	sheet = workbook[chinese_sheet]
 
 	# NOTE: datas 为表中的数据
 	datas = tuple(sheet.rows)
@@ -165,17 +110,17 @@ def getExcelData(args):
 			continue
 
 		# NOTE: 计算份额
-		tmp_raw_data[REQUIRED_KEY_SELL_COUNT] = int(tmp_raw_data[REQUIRED_KEY_SELL_COUNT])
-		tmp_raw_data[REQUIRED_KEY_SINGLE_PRICE] = int(tmp_raw_data[REQUIRED_KEY_SINGLE_PRICE])
-		tmp_raw_data[POST_KEY_SALES] = tmp_raw_data[REQUIRED_KEY_SELL_COUNT]*tmp_raw_data[REQUIRED_KEY_SINGLE_PRICE]
-		tmp_raw_data[POST_KEY_NAME] = "%s %s"%(tmp_raw_data[REQUIRED_KEY_CATEGORY], tmp_raw_data[REQUIRED_KEY_MODEL])
-		tmp_raw_data[POST_KEY_TIME_DUR] = "%s_%s"%(tmp_raw_data[REQUIRED_KEY_YEAR], tmp_raw_data[REQUIRED_KEY_WEEK])
-		tmp_raw_data[POST_KEY_NEW_TYPE] = getProductType(tmp_raw_data[REQUIRED_KEY_PRODECT_TYPE], int(tmp_raw_data[REQUIRED_KEY_IS_MUTI_DOOR]))
+		tmp_raw_data[consts.REQUIRED_KEY_SELL_COUNT] = int(tmp_raw_data[consts.REQUIRED_KEY_SELL_COUNT])
+		tmp_raw_data[consts.REQUIRED_KEY_SINGLE_PRICE] = int(tmp_raw_data[consts.REQUIRED_KEY_SINGLE_PRICE])
+		tmp_raw_data[consts.POST_KEY_SALES] = tmp_raw_data[consts.REQUIRED_KEY_SELL_COUNT]*tmp_raw_data[consts.REQUIRED_KEY_SINGLE_PRICE]
+		tmp_raw_data[consts.POST_KEY_NAME] = "%s %s"%(tmp_raw_data[consts.REQUIRED_KEY_CATEGORY], tmp_raw_data[consts.REQUIRED_KEY_MODEL])
+		tmp_raw_data[consts.POST_KEY_TIME_DUR] = "%s_%s"%(tmp_raw_data[consts.REQUIRED_KEY_YEAR], tmp_raw_data[consts.REQUIRED_KEY_WEEK])
+		tmp_raw_data[consts.POST_KEY_NEW_TYPE] = getProductType(tmp_raw_data[consts.REQUIRED_KEY_PRODECT_TYPE], int(tmp_raw_data[consts.REQUIRED_KEY_IS_MUTI_DOOR]))
 
 		raw_datas[index] = tmp_raw_data
 
 	# NOTE: 检查分类的key是否都存在
-	for key in REQUIRED_KEYS:
+	for key in consts.REQUIRED_KEYS:
 		is_exist = key in title_name_2_index
 		if not is_exist:
 			raise RuntimeError("required_key(%s) is absent"%(key))
@@ -183,18 +128,18 @@ def getExcelData(args):
 	# NOTE: 找出重复的行
 	repetition_dict = {}
 	for index, raw_data in raw_datas.iteritems():
-		year = raw_data[REQUIRED_KEY_YEAR]
-		week = raw_data[REQUIRED_KEY_WEEK]
-		category = raw_data[REQUIRED_KEY_CATEGORY]
-		model = raw_data[REQUIRED_KEY_MODEL]
-		region = raw_data[REQUIRED_KEY_REGION]
+		year = raw_data[consts.REQUIRED_KEY_YEAR]
+		week = raw_data[consts.REQUIRED_KEY_WEEK]
+		category = raw_data[consts.REQUIRED_KEY_CATEGORY]
+		model = raw_data[consts.REQUIRED_KEY_MODEL]
+		region = raw_data[consts.REQUIRED_KEY_REGION]
 		unique_key = "%s_%s_%s_%s_%s"%(year, week, category, model, region)
 		repetition_dict.setdefault(unique_key, []).append(index)
 
 	# NOTE: 处理重复的行
 	for unique, index_list in repetition_dict.items():
 		if len(index_list) == 1:
-			raw_datas[index_list[0]][POST_KEY_MERGE_RABLE_IDS] = index_list
+			raw_datas[index_list[0]][consts.POST_KEY_MERGE_RABLE_IDS] = index_list
 			continue
 
 		# NOTE: 有重复的行
@@ -204,13 +149,13 @@ def getExcelData(args):
 		for table_id in index_list:
 			raw_data = raw_datas[table_id]
 
-			total_sale_count += raw_data[REQUIRED_KEY_SELL_COUNT]
-			total_sales += raw_data[POST_KEY_SALES]
+			total_sale_count += raw_data[consts.REQUIRED_KEY_SELL_COUNT]
+			total_sales += raw_data[consts.POST_KEY_SALES]
 
-		raw_datas[index_list[0]][REQUIRED_KEY_SELL_COUNT] = total_sale_count
-		raw_datas[index_list[0]][POST_KEY_SALES] = total_sales
-		raw_datas[index_list[0]][REQUIRED_KEY_SINGLE_PRICE] = total_sales/total_sale_count
-		raw_datas[index_list[0]][POST_KEY_MERGE_RABLE_IDS] = index_list[1:]
+		raw_datas[index_list[0]][consts.REQUIRED_KEY_SELL_COUNT] = total_sale_count
+		raw_datas[index_list[0]][consts.POST_KEY_SALES] = total_sales
+		raw_datas[index_list[0]][consts.REQUIRED_KEY_SINGLE_PRICE] = total_sales/total_sale_count
+		raw_datas[index_list[0]][consts.POST_KEY_MERGE_RABLE_IDS] = index_list[1:]
 
 	return raw_datas
 
@@ -222,17 +167,17 @@ def categoryExcelData(year, week, raw_datas):
 	# NOTE: 按照分类的key进行分类
 	classified_data = {} # 分类之后的数据
 	for talb_id, table_data in raw_datas.iteritems():
-		if table_data[POST_KEY_TIME_DUR] != unique_key:
+		if table_data[consts.POST_KEY_TIME_DUR] != unique_key:
 			continue
 
-		for catetory_key in CATEGORY_KEYS:
-			price_seg = getPriceSeg(table_data[REQUIRED_KEY_SINGLE_PRICE])
+		for catetory_key in consts.CATEGORY_KEYS:
+			price_seg = getPriceSeg(table_data[consts.REQUIRED_KEY_SINGLE_PRICE])
 			classified_data \
-				.setdefault(table_data[REQUIRED_KEY_REGION], {}) \
+				.setdefault(table_data[consts.REQUIRED_KEY_REGION], {}) \
 				.setdefault(price_seg, {}) \
 				.setdefault(catetory_key, {}) \
 				.setdefault(table_data[catetory_key], []).append(
-					[talb_id, table_data[POST_KEY_SALES]]
+					[talb_id, table_data[consts.POST_KEY_SALES]]
 				)
 	return classified_data
 
@@ -248,10 +193,10 @@ def getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas):
 		for price_seg, price_seg_data in region_data.iteritems():
 			tmp_total_sales = 0
 			tmp_target_sales = 0
-			for cat, details in price_seg_data[REQUIRED_KEY_CATEGORY].iteritems():
+			for cat, details in price_seg_data[consts.REQUIRED_KEY_CATEGORY].iteritems():
 				for item in details:
 					table_id, sales = item
-					catgory = raw_datas[table_id][REQUIRED_KEY_CATEGORY]
+					catgory = raw_datas[table_id][consts.REQUIRED_KEY_CATEGORY]
 
 					tmp_total_sales += sales
 					if catgory == args.target_category:
@@ -279,7 +224,7 @@ def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
 	required_target_key=None):
 	# 整体占比
 
-	processed_required_target_key = required_target_key or CATEGORY_KEYS[0]
+	processed_required_target_key = required_target_key or consts.CATEGORY_KEYS[0]
 
 	sales_data = []
 	for region, region_data in sorted_classified_data.iteritems():
@@ -316,10 +261,10 @@ def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
 		if required_target_key is not None:
 			ret_dict.setdefault(price_seg, {}) \
 				.setdefault(catgory, []) \
-				.append([table_id, raw_data[POST_KEY_NAME], sales, percent, index+1])
+				.append([table_id, raw_data[consts.POST_KEY_NAME], sales, percent, index+1])
 		else:
 			ret_dict.setdefault(price_seg, []) \
-				.append([table_id, raw_data[POST_KEY_NAME], sales, percent, index+1])
+				.append([table_id, raw_data[consts.POST_KEY_NAME], sales, percent, index+1])
 
 	return ret_dict
 
@@ -344,13 +289,13 @@ class PostData(object):
 	def post(self):
 		self.getAllProductTypes()
 
-		for index in xrange(len(PRICE_SEGMENT)+1):
+		for index in xrange(len(consts.PRICE_SEGMENT)+1):
 			self._postOnePriceStage(index)
 
 	def getAllProductTypes(self):
 		# 获取所有产品类型
 		all_product_type_keys = {}
-		for index in xrange(len(PRICE_SEGMENT)+1):
+		for index in xrange(len(consts.PRICE_SEGMENT)+1):
 			for product_type, _ in self.market_shares_for_target_by_product_type.get(index, {}).iteritems():
 				all_product_type_keys[product_type] = 1
 		self.all_product_type_keys = all_product_type_keys.keys()
@@ -416,8 +361,8 @@ class PostData(object):
 				table_data = raw_datas[table_id]
 				line_data.extend([
 					product_name,
-					table_data[REQUIRED_KEY_SELL_COUNT],
-					table_data[REQUIRED_KEY_SINGLE_PRICE],
+					table_data[consts.REQUIRED_KEY_SELL_COUNT],
+					table_data[consts.REQUIRED_KEY_SINGLE_PRICE],
 					percent,
 					rank,
 				])
@@ -436,8 +381,8 @@ class PostData(object):
 				table_data = raw_datas[table_id]
 				line_data.extend([
 					product_name,
-					table_data[REQUIRED_KEY_SELL_COUNT],
-					table_data[REQUIRED_KEY_SINGLE_PRICE],
+					table_data[consts.REQUIRED_KEY_SELL_COUNT],
+					table_data[consts.REQUIRED_KEY_SINGLE_PRICE],
 					percent,
 					rank,
 				])
@@ -464,8 +409,8 @@ class PostData(object):
 					table_data = raw_datas[table_id]
 					line_data.extend([
 						product_name,
-						table_data[REQUIRED_KEY_SELL_COUNT],
-						table_data[REQUIRED_KEY_SINGLE_PRICE],
+						table_data[consts.REQUIRED_KEY_SELL_COUNT],
+						table_data[consts.REQUIRED_KEY_SINGLE_PRICE],
 						percent,
 						rank,
 					])
@@ -551,7 +496,7 @@ class PostData(object):
 			new_sheet.column_dimensions[k].width = lks[i-1]+2 #设置列宽，一般加两个字节宽度，可以根据实际情况灵活调整
 
 		# NOTE: 边框
-		for row in xrange(len(PRICE_SEGMENT)+1):
+		for row in xrange(len(consts.PRICE_SEGMENT)+1):
 			s_row = 3+row*5
 			e_row = s_row+4
 			for tmp_column_index in xrange(1, len(column_step)):
@@ -596,7 +541,7 @@ class PostData(object):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--excel", type=str, required=False,
-				default='./wr1.xlsx', help='excel path')
+				default='D:\python\wr\新建文件夹\wr1.xlsx', help='excel path')
 	parser.add_argument("--sheet", type=str, required=False,
 				default='Sheet1', help='sheet name')
 	parser.add_argument("--target_region", type=unicode, required=False,
@@ -610,7 +555,12 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	print("[ARGS] excel(%s) - sheet(%s)" % (args.excel, args.sheet))
+	chinese_path = args.excel.decode('utf8').encode('gbk')
+	chinese_sheet = args.sheet.decode('utf8').encode('gbk')
+	print("[ARGS] excel(%s) - sheet(%s)" % (chinese_path, chinese_sheet))
+
+
+	t = args.excel.decode('utf8').encode('gbk')
 
 	# NOTE: 读取excel中的数据
 	raw_datas = getExcelData(args)
@@ -622,7 +572,7 @@ if __name__ == '__main__':
 	duplicates_dict = {}
 	for region, region_data in classified_data.iteritems():
 		for price_seg, price_seg_data in region_data.iteritems():
-			for cat_key in CATEGORY_KEYS:
+			for cat_key in consts.CATEGORY_KEYS:
 				tmp_duplicates_dict = {}
 				for cat, details in price_seg_data[cat_key].iteritems():
 					for item in details:
@@ -630,10 +580,10 @@ if __name__ == '__main__':
 						raw_data = raw_datas[table_id]
 
 						# NOTE: 获取去重的key
-						region_value = raw_data[REQUIRED_KEY_REGION]
-						catgoty_value = raw_data[REQUIRED_KEY_CATEGORY]
-						model_value = raw_data[REQUIRED_KEY_MODEL]
-						model_value = raw_data[POST_KEY_TIME_DUR]
+						region_value = raw_data[consts.REQUIRED_KEY_REGION]
+						catgoty_value = raw_data[consts.REQUIRED_KEY_CATEGORY]
+						model_value = raw_data[consts.REQUIRED_KEY_MODEL]
+						model_value = raw_data[consts.POST_KEY_TIME_DUR]
 						unique_key = "%s_%s_%s_%s"%(model_value, region_value, catgoty_value, model_value)
 
 						tmp_duplicates_dict.setdefault(unique_key, []).append(table_id)
@@ -649,7 +599,7 @@ if __name__ == '__main__':
 	sorted_classified_data = {} # 排序之后的数据
 	for region, region_data in classified_data.iteritems():
 		for price_seg, price_seg_data in region_data.iteritems():
-			for cat_key in CATEGORY_KEYS:
+			for cat_key in consts.CATEGORY_KEYS:
 				for cat, details in price_seg_data[cat_key].iteritems():
 					sorted_data = sorted(details, key=lambda s: s[1], reverse=True)
 					sorted_classified_data.setdefault(region, {}) \
@@ -661,11 +611,11 @@ if __name__ == '__main__':
 
 	# NOTE: 整体对比
 	market_shares_for_total_by_cat = getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
-		required_target_key=REQUIRED_KEY_CATEGORY)
+		required_target_key=consts.REQUIRED_KEY_CATEGORY)
 
 	# NOTE: 目标品牌
 	market_shares_for_target_by_product_type = getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
-		required_target_key=POST_KEY_NEW_TYPE)
+		required_target_key=consts.POST_KEY_NEW_TYPE)
 
 	# NOTE: 将结果写入excel中
 	post_data_util = PostData(
