@@ -73,14 +73,12 @@ def getProductType(pt, door_num):
 	raise RuntimeError('Unknown Product Type ')
 # endregion ------------- 产品类型 -------------
 
-def getExcelData(args):
+def getExcelData(excel_path, excel_sheet):
 	# NOTE: 读取excel表格数据
 	# 会对重复的数据做融合
-	chinese_path = args.excel.decode('utf8').encode('gbk')
-	chinese_sheet = args.sheet.decode('utf8').encode('gbk')
 
-	workbook = openpyxl.load_workbook(filename=chinese_path)
-	sheet = workbook[chinese_sheet]
+	workbook = openpyxl.load_workbook(filename=excel_path)
+	sheet = workbook[excel_sheet]
 
 	# NOTE: datas 为表中的数据
 	datas = tuple(sheet.rows)
@@ -187,7 +185,7 @@ def getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas):
 	sales_data = {}
 	for region, region_data in sorted_classified_data.iteritems():
 		# NOTE: 只处理特定地区的
-		if region != args.target_region:
+		if region != args['target_region']:
 			continue
 
 		for price_seg, price_seg_data in region_data.iteritems():
@@ -199,7 +197,7 @@ def getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas):
 					catgory = raw_datas[table_id][consts.REQUIRED_KEY_CATEGORY]
 
 					tmp_total_sales += sales
-					if catgory == args.target_category:
+					if catgory == args['target_category']:
 						tmp_target_sales += sales
 			sales_data[price_seg] = {
 				'total': tmp_total_sales,
@@ -230,7 +228,7 @@ def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
 	for region, region_data in sorted_classified_data.iteritems():
 
 		# NOTE: 只处理特定地区的
-		if region != args.target_region:
+		if region != args['target_region']:
 			continue
 
 		for price_seg, price_seg_data in region_data.iteritems():
@@ -270,15 +268,12 @@ def getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
 
 class PostData(object):
 	def __init__(self, args,
-			year, week,
 			raw_datas,
 			market_shares_for_all_price_seg,
 			market_shares_for_total_by_cat,
 			market_shares_for_target_by_product_type
 		):
 		self.args = args
-		self.year = year
-		self.week = week
 		self.raw_datas = raw_datas
 		self.market_shares_for_all_price_seg = market_shares_for_all_price_seg
 		self.market_shares_for_total_by_cat = market_shares_for_total_by_cat
@@ -306,7 +301,7 @@ class PostData(object):
 		# NOTE: 处理数据头
 		title_line1_data = ['价位段', '占比', '份额',
 			"整体", "", "", "", "",
-			"%s"%(self.args.target_category), "", "", "", "",
+			"%s"%(self.args['target_category']), "", "", "", "",
 		]
 		title_line2_data = ['', '', '',"型号", "销量", "价格", "占比" ,"排名","型号", "销量", "价格", "占比" ,"排名"]
 
@@ -316,7 +311,7 @@ class PostData(object):
 		target_catetogy_data_by_cat = []
 		for category, product_rank_list in market_shares_for_total_by_cat_data.iteritems():
 			all_data_by_cat.extend(product_rank_list)
-			if category == self.args.target_category:
+			if category == self.args['target_category']:
 				target_catetogy_data_by_cat.extend(product_rank_list)
 
 		# NOTE: 这儿排序的key是排名，所以不用降序
@@ -430,7 +425,7 @@ class PostData(object):
 			new_sheet.append(data)
 		self.addTableFormat(new_sheet)
 
-		workbook.save('%s_%s.xlsx'%(self.year, self.week))
+		workbook.save('%s_%s.xlsx'%(self.args['target_year'], self.args['target_week']))
 
 	# region ---------------- excel 表格式相关 ----------------
 	def addTableFormat(self, new_sheet):
@@ -539,91 +534,93 @@ class PostData(object):
 	# endregion ---------------- excel 表格式相关 ----------------
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--excel", type=str, required=False,
-				default='D:\python\wr\新建文件夹\wr1.xlsx', help='excel path')
-	parser.add_argument("--sheet", type=str, required=False,
-				default='Sheet1', help='sheet name')
-	parser.add_argument("--target_region", type=unicode, required=False,
-				default=u'杭州', help='target city')
-	parser.add_argument("--target_category", type=unicode, required=False,
-				default=u'海尔', help='target category')
+	raw_cfgs = {}
+	with open('./cfg.txt', 'r') as f:
+		for line in f.readlines():
+			line = line.strip('\n')
+			split_res = line.split(" ")
+			if len(split_res) != 2:
+				continue
+			raw_cfgs[split_res[0]] = split_res[1]
 
-	# 年份 & 周
-	parser.add_argument("--target_year", type=int, required=True,  help='target year')
-	parser.add_argument("--target_week", type=int, required=True,  help='target week')
-
-	args = parser.parse_args()
-
-	chinese_path = args.excel.decode('utf8').encode('gbk')
-	chinese_sheet = args.sheet.decode('utf8').encode('gbk')
-	print("[ARGS] excel(%s) - sheet(%s)" % (chinese_path, chinese_sheet))
-
-
-	t = args.excel.decode('utf8').encode('gbk')
+	excel_path = unicode(raw_cfgs['excel_path'], 'utf8').encode('gbk')
+	excel_sheet = unicode(raw_cfgs['excel_sheet'], 'utf8')
+	print("[ARGS] excel(%s) - sheet(%s)" % (excel_path, excel_sheet.encode('gbk')))
 
 	# NOTE: 读取excel中的数据
-	raw_datas = getExcelData(args)
+	raw_datas = getExcelData("%s"%(excel_path), excel_sheet)
 
-	# NOTE: 按照分类的key进行分类
-	classified_data = categoryExcelData(args.target_year, args.target_week, raw_datas) # 分类之后的数据
+	target_week = raw_cfgs['target_week']
+	target_weeks = target_week.split(",")
+	for week in target_weeks:
+		import copy
+		cfgs = copy.deepcopy(raw_cfgs)
+		cfgs['target_week'] = int(week)
+		print(cfgs)
 
-	# NOTE: 检查是否有重复的数据
-	duplicates_dict = {}
-	for region, region_data in classified_data.iteritems():
-		for price_seg, price_seg_data in region_data.iteritems():
-			for cat_key in consts.CATEGORY_KEYS:
-				tmp_duplicates_dict = {}
-				for cat, details in price_seg_data[cat_key].iteritems():
-					for item in details:
-						table_id = item[0]
-						raw_data = raw_datas[table_id]
+		# NOTE: 按照分类的key进行分类
+		classified_data = categoryExcelData(
+			int(cfgs['target_year']),
+			int(cfgs['target_week']),
+			raw_datas,
+		) # 分类之后的数据
 
-						# NOTE: 获取去重的key
-						region_value = raw_data[consts.REQUIRED_KEY_REGION]
-						catgoty_value = raw_data[consts.REQUIRED_KEY_CATEGORY]
-						model_value = raw_data[consts.REQUIRED_KEY_MODEL]
-						model_value = raw_data[consts.POST_KEY_TIME_DUR]
-						unique_key = "%s_%s_%s_%s"%(model_value, region_value, catgoty_value, model_value)
+		# NOTE: 检查是否有重复的数据
+		duplicates_dict = {}
+		for region, region_data in classified_data.iteritems():
+			for price_seg, price_seg_data in region_data.iteritems():
+				for cat_key in consts.CATEGORY_KEYS:
+					tmp_duplicates_dict = {}
+					for cat, details in price_seg_data[cat_key].iteritems():
+						for item in details:
+							table_id = item[0]
+							raw_data = raw_datas[table_id]
 
-						tmp_duplicates_dict.setdefault(unique_key, []).append(table_id)
-				duplicates_dict[cat_key] = copy.deepcopy(tmp_duplicates_dict)
+							# NOTE: 获取去重的key
+							region_value = raw_data[consts.REQUIRED_KEY_REGION]
+							catgoty_value = raw_data[consts.REQUIRED_KEY_CATEGORY]
+							model_value = raw_data[consts.REQUIRED_KEY_MODEL]
+							model_value = raw_data[consts.POST_KEY_TIME_DUR]
+							unique_key = "%s_%s_%s_%s"%(model_value, region_value, catgoty_value, model_value)
 
-	for k1, v1 in duplicates_dict.iteritems():
-		for k2, v2 in v1.iteritems():
-			if len(v2) > 1:
-				print("[DUPLICATED] cat_key(%s) unique_id(%s) row_ids(%s)"%
-					(k1, k2, v2))
+							tmp_duplicates_dict.setdefault(unique_key, []).append(table_id)
+					duplicates_dict[cat_key] = copy.deepcopy(tmp_duplicates_dict)
 
-	# NOTE: 排序
-	sorted_classified_data = {} # 排序之后的数据
-	for region, region_data in classified_data.iteritems():
-		for price_seg, price_seg_data in region_data.iteritems():
-			for cat_key in consts.CATEGORY_KEYS:
-				for cat, details in price_seg_data[cat_key].iteritems():
-					sorted_data = sorted(details, key=lambda s: s[1], reverse=True)
-					sorted_classified_data.setdefault(region, {}) \
-						.setdefault(price_seg, {}) \
-						.setdefault(cat_key, {})[cat] = sorted_data
+		for k1, v1 in duplicates_dict.iteritems():
+			for k2, v2 in v1.iteritems():
+				if len(v2) > 1:
+					print("[DUPLICATED] cat_key(%s) unique_id(%s) row_ids(%s)"%
+						(k1, k2, v2))
 
-	# NOTE: 每个加个段占市场的总份额 & 目标品牌在每个段的占比
-	market_shares_for_all_price_seg = getMarketSharesForPriceSeg(args, sorted_classified_data, raw_datas)
+		# NOTE: 排序
+		sorted_classified_data = {} # 排序之后的数据
+		for region, region_data in classified_data.iteritems():
+			for price_seg, price_seg_data in region_data.iteritems():
+				for cat_key in consts.CATEGORY_KEYS:
+					for cat, details in price_seg_data[cat_key].iteritems():
+						sorted_data = sorted(details, key=lambda s: s[1], reverse=True)
+						sorted_classified_data.setdefault(region, {}) \
+							.setdefault(price_seg, {}) \
+							.setdefault(cat_key, {})[cat] = sorted_data
 
-	# NOTE: 整体对比
-	market_shares_for_total_by_cat = getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
-		required_target_key=consts.REQUIRED_KEY_CATEGORY)
+		# NOTE: 每个加个段占市场的总份额 & 目标品牌在每个段的占比
+		market_shares_for_all_price_seg = getMarketSharesForPriceSeg(cfgs, sorted_classified_data, raw_datas)
 
-	# NOTE: 目标品牌
-	market_shares_for_target_by_product_type = getMarketSharesForTotal(args, sorted_classified_data, raw_datas,
-		required_target_key=consts.POST_KEY_NEW_TYPE)
+		# NOTE: 整体对比
+		market_shares_for_total_by_cat = getMarketSharesForTotal(cfgs, sorted_classified_data, raw_datas,
+			required_target_key=consts.REQUIRED_KEY_CATEGORY)
 
-	# NOTE: 将结果写入excel中
-	post_data_util = PostData(
-		args, args.target_year, args.target_week,
-		raw_datas,
-		market_shares_for_all_price_seg,
-		market_shares_for_total_by_cat,
-		market_shares_for_target_by_product_type)
-	post_data_util.post()
-	post_data_util.saveToExcel()
+		# NOTE: 目标品牌
+		market_shares_for_target_by_product_type = getMarketSharesForTotal(cfgs, sorted_classified_data, raw_datas,
+			required_target_key=consts.POST_KEY_NEW_TYPE)
+
+		# NOTE: 将结果写入excel中
+		post_data_util = PostData(
+			cfgs,
+			raw_datas,
+			market_shares_for_all_price_seg,
+			market_shares_for_total_by_cat,
+			market_shares_for_target_by_product_type)
+		post_data_util.post()
+		post_data_util.saveToExcel()
 

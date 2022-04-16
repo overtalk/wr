@@ -1,0 +1,7 @@
+excel_path D:\python\wr\10066新建文件夹\0-中文2022年.xlsx
+excel_sheet 2022年
+target_region 杭州
+target_category 海尔
+target_year 2022
+target_month 10
+target_week 7,8,9
