@@ -4,4 +4,4 @@ target_region 杭州
 target_category 海尔
 target_year 2022
 target_month 10
-target_week 7,8,9
+target_week 7,8,9,12

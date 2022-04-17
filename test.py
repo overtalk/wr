@@ -556,6 +556,8 @@ if __name__ == '__main__':
 		import copy
 		cfgs = copy.deepcopy(raw_cfgs)
 		cfgs['target_week'] = int(week)
+		cfgs['target_region'] = unicode(cfgs['target_region'], "utf-8")
+		cfgs['target_category'] = unicode(cfgs['target_category'], "utf-8")
 		print(cfgs)
 
 		# NOTE: 按照分类的key进行分类
@@ -604,14 +606,17 @@ if __name__ == '__main__':
 							.setdefault(cat_key, {})[cat] = sorted_data
 
 		# NOTE: 每个加个段占市场的总份额 & 目标品牌在每个段的占比
-		market_shares_for_all_price_seg = getMarketSharesForPriceSeg(cfgs, sorted_classified_data, raw_datas)
+		market_shares_for_all_price_seg = getMarketSharesForPriceSeg(
+			cfgs, sorted_classified_data, raw_datas)
 
 		# NOTE: 整体对比
-		market_shares_for_total_by_cat = getMarketSharesForTotal(cfgs, sorted_classified_data, raw_datas,
+		market_shares_for_total_by_cat = getMarketSharesForTotal(
+			cfgs, sorted_classified_data, raw_datas,
 			required_target_key=consts.REQUIRED_KEY_CATEGORY)
 
 		# NOTE: 目标品牌
-		market_shares_for_target_by_product_type = getMarketSharesForTotal(cfgs, sorted_classified_data, raw_datas,
+		market_shares_for_target_by_product_type = getMarketSharesForTotal(
+			cfgs, sorted_classified_data, raw_datas,
 			required_target_key=consts.POST_KEY_NEW_TYPE)
 
 		# NOTE: 将结果写入excel中
